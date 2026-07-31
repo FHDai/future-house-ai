@@ -11,6 +11,11 @@ export const DAY_END_HOUR = 24;
 export const SLOT_INTERVAL_MINUTES = 60;
 export const RESERVATION_LEAD_TIME_MINUTES = 180;
 
+type ReservationDatabaseError = {
+  code?: string | null;
+  message: string;
+};
+
 export const initialForm: ReservationForm = {
   courtId: "",
   customerName: "",
@@ -64,6 +69,32 @@ export function isReservationTimeAllowed(
   );
 
   return reservationTime >= earliestAllowedTime;
+}
+
+export function getReservationFormError(
+  error: ReservationDatabaseError
+) {
+  const normalizedMessage = error.message.toLowerCase();
+
+  if (
+    normalizedMessage.includes(
+      "reservations_booking_window_violation"
+    )
+  ) {
+    return "Rezervasyon başlangıcına en az 3 saat kalmalıdır. Geçmiş tarih ve saatler için rezervasyon oluşturamazsın.";
+  }
+
+  if (
+    error.code === "23P01" ||
+    normalizedMessage.includes(
+      "reservations_no_time_overlap"
+    ) ||
+    normalizedMessage.includes("conflicting key")
+  ) {
+    return "Bu saha için seçilen saat aralığında başka bir rezervasyon bulunuyor. Lütfen farklı bir saat seç.";
+  }
+
+  return `Rezervasyon oluşturulamadı: ${error.message}`;
 }
 
 export function formatDateForDisplay(dateValue: string) {
