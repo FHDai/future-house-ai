@@ -5,6 +5,7 @@ import {
   buildSpecialBookingMailto,
   doTimesOverlap,
   getCalendarDays,
+  getReservationAuditChanges,
   getReservationFormError,
   hasReservationScheduleChanged,
   isReservationDurationAllowed,
@@ -229,5 +230,64 @@ describe("hasReservationScheduleChanged", () => {
         "11:30"
       )
     ).toBe(true);
+  });
+});
+
+describe("getReservationAuditChanges", () => {
+  it("describes creation and deletion events", () => {
+    const baseLog = {
+      id: "audit-1",
+      reservation_id: "reservation-1",
+      court_id: "court-1",
+      old_record: null,
+      new_record: null,
+      changed_by: "user-1",
+      changed_at: "2026-08-01T00:00:00.000Z",
+    };
+
+    expect(
+      getReservationAuditChanges({
+        ...baseLog,
+        operation: "INSERT",
+      })
+    ).toEqual(["Rezervasyon oluşturuldu."]);
+    expect(
+      getReservationAuditChanges({
+        ...baseLog,
+        operation: "DELETE",
+      })
+    ).toEqual(["Rezervasyon silindi."]);
+  });
+
+  it("describes status, payment and schedule updates", () => {
+    const changes = getReservationAuditChanges({
+      id: "audit-2",
+      reservation_id: "reservation-1",
+      court_id: "court-1",
+      operation: "UPDATE",
+      changed_by: "user-1",
+      changed_at: "2026-08-01T00:00:00.000Z",
+      old_record: {
+        reservation_date: "2026-08-02",
+        start_time: "10:00:00",
+        end_time: "11:00:00",
+        status: "pending",
+        payment_status: "unpaid",
+      },
+      new_record: {
+        reservation_date: "2026-08-03",
+        start_time: "11:00:00",
+        end_time: "12:00:00",
+        status: "confirmed",
+        payment_status: "paid",
+      },
+    });
+
+    expect(changes).toContain("Tarih: 2026-08-02 → 2026-08-03");
+    expect(changes).toContain(
+      "Saat: 10:00–11:00 → 11:00–12:00"
+    );
+    expect(changes).toContain("Durum: Bekliyor → Onaylandı");
+    expect(changes).toContain("Ödeme: Ödenmedi → Ödendi");
   });
 });

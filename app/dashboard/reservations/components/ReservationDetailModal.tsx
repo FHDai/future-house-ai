@@ -1,13 +1,22 @@
-import type { Court, Reservation } from "../types";
+import type {
+  Court,
+  Reservation,
+  ReservationAuditLog,
+} from "../types";
 import {
+  formatAuditDate,
   formatCurrency,
   formatDateForDisplay,
   getPaymentStatusLabel,
+  getReservationAuditChanges,
   getStatusLabel,
   normalizeTime,
 } from "../utils";
 
 type ReservationDetailModalProps = {
+  auditError: string;
+  auditLoading: boolean;
+  auditLogs: ReservationAuditLog[];
   courts: Court[];
   reservation: Reservation;
   onCancel: () => void;
@@ -18,6 +27,9 @@ type ReservationDetailModalProps = {
 };
 
 export function ReservationDetailModal({
+  auditError,
+  auditLoading,
+  auditLogs,
   courts,
   reservation,
   onCancel,
@@ -103,6 +115,46 @@ export function ReservationDetailModal({
             </span>
           </div>
         </div>
+
+        <section className="mt-6">
+          <h3 className="text-sm font-semibold text-white">
+            Değişiklik Geçmişi
+          </h3>
+
+          {auditLoading ? (
+            <p className="mt-3 text-sm text-gray-500">
+              Geçmiş yükleniyor...
+            </p>
+          ) : auditError ? (
+            <p className="mt-3 rounded-xl border border-red-900 bg-red-950/30 px-4 py-3 text-sm text-red-300">
+              {auditError}
+            </p>
+          ) : auditLogs.length === 0 ? (
+            <p className="mt-3 rounded-xl border border-gray-800 px-4 py-3 text-sm text-gray-500">
+              Bu rezervasyon için henüz kayıtlı bir değişiklik yok.
+            </p>
+          ) : (
+            <ol className="mt-3 space-y-3">
+              {auditLogs.map((auditLog) => (
+                <li
+                  key={auditLog.id}
+                  className="rounded-xl border border-gray-800 bg-gray-950 px-4 py-3"
+                >
+                  <p className="text-xs text-gray-500">
+                    {formatAuditDate(auditLog.changed_at)}
+                  </p>
+                  <ul className="mt-2 space-y-1 text-sm text-gray-300">
+                    {getReservationAuditChanges(auditLog).map(
+                      (change) => (
+                        <li key={change}>{change}</li>
+                      )
+                    )}
+                  </ul>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
 
         {reservation.status !== "cancelled" && (
           <div className="mt-6 grid gap-3 sm:grid-cols-2">

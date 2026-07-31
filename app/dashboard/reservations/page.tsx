@@ -20,6 +20,7 @@ import type {
   Court,
   Facility,
   Reservation,
+  ReservationAuditLog,
   ReservationForm,
   TimeSlot,
 } from "./types";
@@ -92,6 +93,10 @@ export default function ReservationsPage() {
 
   const [selectedReservation, setSelectedReservation] =
     useState<Reservation | null>(null);
+  const [reservationAuditLogs, setReservationAuditLogs] =
+    useState<ReservationAuditLog[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState("");
 
   const [message, setMessage] = useState("");
   const [formMessage, setFormMessage] = useState("");
@@ -329,6 +334,57 @@ export default function ReservationsPage() {
     setUpcomingReservations(futureReservations);
     setUpcomingReservationsLoading(false);
   }, []);
+
+  const loadReservationAuditLogs = useCallback(
+    async (reservationId: string) => {
+      setAuditLoading(true);
+      setAuditError("");
+
+      const { data, error } = await supabase
+        .from("reservation_audit_logs")
+        .select(`
+          id,
+          reservation_id,
+          court_id,
+          operation,
+          old_record,
+          new_record,
+          changed_by,
+          changed_at
+        `)
+        .eq("reservation_id", reservationId)
+        .order("changed_at", { ascending: false });
+
+      if (error) {
+        setReservationAuditLogs([]);
+        setAuditError(
+          `Değişiklik geçmişi yüklenemedi: ${error.message}`
+        );
+        setAuditLoading(false);
+        return;
+      }
+
+      setReservationAuditLogs(
+        (data ?? []) as ReservationAuditLog[]
+      );
+      setAuditLoading(false);
+    },
+    []
+  );
+
+  const openReservationDetails = (
+    reservation: Reservation
+  ) => {
+    setSelectedReservation(reservation);
+    setReservationAuditLogs([]);
+    void loadReservationAuditLogs(reservation.id);
+  };
+
+  const closeReservationDetails = () => {
+    setSelectedReservation(null);
+    setReservationAuditLogs([]);
+    setAuditError("");
+  };
 
   const loadInitialData = useCallback(async () => {
     setPageLoading(true);
@@ -1055,7 +1111,7 @@ export default function ReservationsPage() {
                     setMessage("");
                   }}
                   onOpenReservation={openReservationForm}
-                  onSelectReservation={setSelectedReservation}
+                  onSelectReservation={openReservationDetails}
                 />
               </div>
             </section>
@@ -1065,7 +1121,7 @@ export default function ReservationsPage() {
               facilities={facilities}
               loading={upcomingReservationsLoading}
               reservations={upcomingReservations}
-              onSelectReservation={setSelectedReservation}
+              onSelectReservation={openReservationDetails}
             />
           </>
         )}
@@ -1124,12 +1180,15 @@ export default function ReservationsPage() {
 
       {selectedReservation && (
         <ReservationDetailModal
+          auditError={auditError}
+          auditLoading={auditLoading}
+          auditLogs={reservationAuditLogs}
           courts={courts}
           reservation={selectedReservation}
           onCancel={() =>
             handleCancelReservation(selectedReservation)
           }
-          onClose={() => setSelectedReservation(null)}
+          onClose={closeReservationDetails}
           onComplete={() =>
             handleCompleteReservation(selectedReservation)
           }
