@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import type { Reservation } from "./types";
 import {
+  buildSpecialBookingMailto,
   doTimesOverlap,
   getCalendarDays,
   getReservationFormError,
+  hasReservationScheduleChanged,
+  isReservationDurationAllowed,
   isReservationTimeAllowed,
 } from "./utils";
 
@@ -27,6 +30,42 @@ describe("isReservationTimeAllowed", () => {
     expect(
       isReservationTimeAllowed("2026-07-30", "18:00", now)
     ).toBe(false);
+  });
+});
+
+describe("isReservationDurationAllowed", () => {
+  it("allows reservations up to exactly two hours", () => {
+    expect(isReservationDurationAllowed("10:00", "11:00")).toBe(
+      true
+    );
+    expect(isReservationDurationAllowed("10:00", "12:00")).toBe(
+      true
+    );
+  });
+
+  it("rejects longer and invalid reservations", () => {
+    expect(isReservationDurationAllowed("10:00", "12:01")).toBe(
+      false
+    );
+    expect(isReservationDurationAllowed("10:00", "10:00")).toBe(
+      false
+    );
+  });
+});
+
+describe("buildSpecialBookingMailto", () => {
+  it("creates a prefilled email to the booking contact", () => {
+    const mailto = buildSpecialBookingMailto({
+      courtName: "Merkez Saha",
+      customerName: "Ali Yılmaz",
+      endTime: "14:00",
+      reservationDate: "2026-08-10",
+      startTime: "10:00",
+    });
+
+    expect(mailto).toContain("mailto:kerem@futurehouse.digital");
+    expect(decodeURIComponent(mailto)).toContain("Ali Yılmaz");
+    expect(decodeURIComponent(mailto)).toContain("Merkez Saha");
   });
 });
 
@@ -132,5 +171,63 @@ describe("getReservationFormError", () => {
     ).toBe(
       "Rezervasyon oluşturulamadı: Unexpected database error"
     );
+  });
+});
+
+describe("hasReservationScheduleChanged", () => {
+  const reservation: Reservation = {
+    id: "reservation-1",
+    court_id: "court-1",
+    customer_name: "Test Müşteri",
+    customer_phone: null,
+    reservation_date: "2026-08-01",
+    start_time: "10:00:00",
+    end_time: "11:00:00",
+    status: "confirmed",
+    total_price: 500,
+    payment_status: "unpaid",
+    created_at: "2026-07-31T12:00:00.000Z",
+  };
+
+  it("ignores database time precision when the schedule is unchanged", () => {
+    expect(
+      hasReservationScheduleChanged(
+        reservation,
+        "2026-08-01",
+        "court-1",
+        "10:00",
+        "11:00"
+      )
+    ).toBe(false);
+  });
+
+  it("detects date, court and time changes", () => {
+    expect(
+      hasReservationScheduleChanged(
+        reservation,
+        "2026-08-02",
+        "court-1",
+        "10:00",
+        "11:00"
+      )
+    ).toBe(true);
+    expect(
+      hasReservationScheduleChanged(
+        reservation,
+        "2026-08-01",
+        "court-2",
+        "10:00",
+        "11:00"
+      )
+    ).toBe(true);
+    expect(
+      hasReservationScheduleChanged(
+        reservation,
+        "2026-08-01",
+        "court-1",
+        "10:30",
+        "11:30"
+      )
+    ).toBe(true);
   });
 });
