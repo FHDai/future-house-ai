@@ -84,9 +84,12 @@ export function ReservationCalendar({
           <button
             key={calendarDay.dateValue}
             type="button"
+            disabled={calendarDay.isPast}
             onClick={() => onSelectDate(calendarDay)}
             className={`relative flex aspect-square items-center justify-center rounded-xl text-sm transition ${
-              calendarDay.isSelected
+              calendarDay.isPast
+                ? "cursor-not-allowed text-gray-800"
+                : calendarDay.isSelected
                 ? "bg-white font-semibold text-black"
                 : calendarDay.isCurrentMonth
                   ? "text-white hover:bg-gray-800"
