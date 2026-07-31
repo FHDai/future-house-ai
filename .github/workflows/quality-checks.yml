@@ -39,10 +39,7 @@ jobs:
         run: npm test
 
       - name: Run lint
-        # Existing data-loading effects will be migrated in a separate PR.
-        run: >-
-          npm run lint -- --rule
-          'react-hooks/set-state-in-effect: off'
+        run: npm run lint
 
       - name: Check TypeScript
         run: npx tsc --noEmit

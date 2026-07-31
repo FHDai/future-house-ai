@@ -69,12 +69,6 @@ function formatDateForInput(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function parseDateValue(dateValue: string) {
-  const [year, month, day] = dateValue.split("-").map(Number);
-
-  return new Date(year, month - 1, day);
-}
-
 function normalizeTime(time: string) {
   return time.slice(0, 5);
 }
@@ -369,7 +363,11 @@ export default function DashboardPage() {
   }, [router, sevenDaysAgoValue]);
 
   useEffect(() => {
-    loadDashboardData();
+    const timeoutId = window.setTimeout(() => {
+      void loadDashboardData();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [loadDashboardData]);
 
   const activeCourts = useMemo(() => {

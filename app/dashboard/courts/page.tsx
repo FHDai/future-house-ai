@@ -1,7 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -42,7 +47,7 @@ export default function CourtsPage() {
     "success" | "error" | ""
   >("");
 
-  const loadPageData = async () => {
+  const loadPageData = useCallback(async () => {
     setPageLoading(true);
     setMessage("");
 
@@ -109,11 +114,15 @@ export default function CourtsPage() {
     }
 
     setPageLoading(false);
-  };
+  }, [router]);
 
   useEffect(() => {
-    loadPageData();
-  }, []);
+    const timeoutId = window.setTimeout(() => {
+      void loadPageData();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loadPageData]);
 
   const handleAddCourt = async (
     event: FormEvent<HTMLFormElement>

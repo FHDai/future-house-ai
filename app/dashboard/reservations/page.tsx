@@ -402,34 +402,28 @@ export default function ReservationsPage() {
   }, [router, loadUpcomingReservations]);
 
   useEffect(() => {
-    loadInitialData();
+    const timeoutId = window.setTimeout(() => {
+      void loadInitialData();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [loadInitialData]);
 
   useEffect(() => {
-    if (!pageLoading) {
-      loadReservations(selectedDate);
+    if (pageLoading) {
+      return;
     }
+
+    const timeoutId = window.setTimeout(() => {
+      void loadReservations(selectedDate);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [
     selectedDate,
     pageLoading,
     loadReservations,
   ]);
-
-  useEffect(() => {
-    if (filteredCourts.length === 0) {
-      setSelectedCourtId("");
-      return;
-    }
-
-    const selectedCourtStillVisible =
-      filteredCourts.some(
-        (court) => court.id === selectedCourtId
-      );
-
-    if (!selectedCourtStillVisible) {
-      setSelectedCourtId(filteredCourts[0].id);
-    }
-  }, [filteredCourts, selectedCourtId]);
 
   const calculateSuggestedPrice = (
     courtId: string,
@@ -977,6 +971,22 @@ export default function ReservationsPage() {
                   }}
                   onFacilityChange={(facilityId) => {
                     setSelectedFacilityId(facilityId);
+                    const availableCourts = courts.filter(
+                      (court) =>
+                        facilityId === "all" ||
+                        court.facility_id === facilityId
+                    );
+
+                    setSelectedCourtId((currentCourtId) => {
+                      const currentCourtIsAvailable =
+                        availableCourts.some(
+                          (court) => court.id === currentCourtId
+                        );
+
+                      return currentCourtIsAvailable
+                        ? currentCourtId
+                        : availableCourts[0]?.id ?? "";
+                    });
                     setMessage("");
                   }}
                   onOpenReservation={openReservationForm}

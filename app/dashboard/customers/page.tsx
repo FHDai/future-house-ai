@@ -181,7 +181,11 @@ export default function CustomersPage() {
   }, [router]);
 
   useEffect(() => {
-    loadPageData();
+    const timeoutId = window.setTimeout(() => {
+      void loadPageData();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [loadPageData]);
 
   const customerStats = useMemo(() => {
