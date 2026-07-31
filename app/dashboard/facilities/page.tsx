@@ -1,7 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -29,7 +34,7 @@ export default function FacilitiesPage() {
   const [showForm, setShowForm] = useState(false);
   const [message, setMessage] = useState("");
 
-  const loadFacilities = async () => {
+  const loadFacilities = useCallback(async () => {
     setPageLoading(true);
     setMessage("");
 
@@ -56,11 +61,15 @@ export default function FacilitiesPage() {
 
     setFacilities(data ?? []);
     setPageLoading(false);
-  };
+  }, [router]);
 
   useEffect(() => {
-    loadFacilities();
-  }, []);
+    const timeoutId = window.setTimeout(() => {
+      void loadFacilities();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loadFacilities]);
 
   const handleAddFacility = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

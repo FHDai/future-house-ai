@@ -313,12 +313,12 @@ export default function DashboardShell({
   }, [router]);
 
   useEffect(() => {
-    loadUser();
-  }, [loadUser]);
+    const timeoutId = window.setTimeout(() => {
+      void loadUser();
+    }, 0);
 
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [pathname]);
+    return () => window.clearTimeout(timeoutId);
+  }, [loadUser]);
 
   useEffect(() => {
     if (!mobileMenuOpen) {
