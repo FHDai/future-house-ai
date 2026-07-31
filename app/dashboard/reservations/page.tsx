@@ -987,6 +987,7 @@ export default function ReservationsPage() {
 
             <UpcomingReservationsList
               courts={courts}
+              facilities={facilities}
               loading={upcomingReservationsLoading}
               reservations={upcomingReservations}
               onSelectReservation={setSelectedReservation}
