@@ -14,6 +14,7 @@ import { ReservationCalendar } from "./components/ReservationCalendar";
 import { ReservationDetailModal } from "./components/ReservationDetailModal";
 import { ReservationFormModal } from "./components/ReservationFormModal";
 import { ReservationSchedulePanel } from "./components/ReservationSchedulePanel";
+import { UpcomingReservationsList } from "./components/UpcomingReservationsList";
 import type {
   CalendarDay,
   Court,
@@ -30,6 +31,7 @@ import {
   formatCurrency,
   formatDateForInput,
   getCalendarDays,
+  getReservationDateTime,
   initialForm,
   isReservationTimeAllowed,
   minutesToTime,
@@ -45,6 +47,8 @@ export default function ReservationsPage() {
   const [reservations, setReservations] = useState<
     Reservation[]
   >([]);
+  const [upcomingReservations, setUpcomingReservations] =
+    useState<Reservation[]>([]);
 
   const [selectedDate, setSelectedDate] = useState(
     formatDateForInput(new Date())
@@ -71,6 +75,8 @@ export default function ReservationsPage() {
 
   const [pageLoading, setPageLoading] = useState(true);
   const [reservationsLoading, setReservationsLoading] =
+    useState(false);
+  const [upcomingReservationsLoading, setUpcomingReservationsLoading] =
     useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -152,9 +158,30 @@ export default function ReservationsPage() {
       );
   }, [activeReservations]);
 
+  const reservationCounts = useMemo(() => {
+    return upcomingReservations.reduce<Record<string, number>>(
+      (counts, reservation) => {
+        if (reservation.status === "cancelled") {
+          return counts;
+        }
+
+        return {
+          ...counts,
+          [reservation.reservation_date]:
+            (counts[reservation.reservation_date] ?? 0) + 1,
+        };
+      },
+      {}
+    );
+  }, [upcomingReservations]);
+
   const calendarDays = useMemo(() => {
-    return getCalendarDays(visibleMonth, selectedDate);
-  }, [visibleMonth, selectedDate]);
+    return getCalendarDays(
+      visibleMonth,
+      selectedDate,
+      reservationCounts
+    );
+  }, [visibleMonth, selectedDate, reservationCounts]);
 
   const timeSlots = useMemo<TimeSlot[]>(() => {
     if (!selectedCourtId) {
@@ -248,6 +275,53 @@ export default function ReservationsPage() {
     []
   );
 
+  const loadUpcomingReservations = useCallback(async () => {
+    setUpcomingReservationsLoading(true);
+
+    const todayValue = formatDateForInput(new Date());
+    const { data, error } = await supabase
+      .from("reservations")
+      .select(`
+        id,
+        court_id,
+        customer_name,
+        customer_phone,
+        reservation_date,
+        start_time,
+        end_time,
+        status,
+        total_price,
+        payment_status,
+        created_at
+      `)
+      .gte("reservation_date", todayValue)
+      .order("reservation_date", { ascending: true })
+      .order("start_time", { ascending: true });
+
+    if (error) {
+      setMessage(
+        `Gelecek rezervasyonlar yüklenemedi: ${error.message}`
+      );
+      setMessageType("error");
+      setUpcomingReservationsLoading(false);
+      return;
+    }
+
+    const now = new Date();
+    const futureReservations = (
+      (data ?? []) as Reservation[]
+    ).filter(
+      (reservation) =>
+        getReservationDateTime(
+          reservation.reservation_date,
+          reservation.start_time
+        ) >= now
+    );
+
+    setUpcomingReservations(futureReservations);
+    setUpcomingReservationsLoading(false);
+  }, []);
+
   const loadInitialData = useCallback(async () => {
     setPageLoading(true);
     setMessage("");
@@ -322,8 +396,10 @@ export default function ReservationsPage() {
       }));
     }
 
+    await loadUpcomingReservations();
+
     setPageLoading(false);
-  }, [router]);
+  }, [router, loadUpcomingReservations]);
 
   useEffect(() => {
     loadInitialData();
@@ -642,7 +718,10 @@ export default function ReservationsPage() {
     setFormMessage("");
     setForm(initialForm);
 
-    await loadReservations(selectedDate);
+    await Promise.all([
+      loadReservations(selectedDate),
+      loadUpcomingReservations(),
+    ]);
 
     setMessage(
       "Rezervasyon başarıyla oluşturuldu."
@@ -678,7 +757,10 @@ export default function ReservationsPage() {
 
     setSelectedReservation(null);
 
-    await loadReservations(selectedDate);
+    await Promise.all([
+      loadReservations(selectedDate),
+      loadUpcomingReservations(),
+    ]);
 
     setMessage("Rezervasyon iptal edildi.");
     setMessageType("success");
@@ -704,7 +786,10 @@ export default function ReservationsPage() {
 
     setSelectedReservation(null);
 
-    await loadReservations(selectedDate);
+    await Promise.all([
+      loadReservations(selectedDate),
+      loadUpcomingReservations(),
+    ]);
 
     setMessage(
       "Rezervasyon tamamlandı olarak işaretlendi."
@@ -732,7 +817,10 @@ export default function ReservationsPage() {
 
     setSelectedReservation(null);
 
-    await loadReservations(selectedDate);
+    await Promise.all([
+      loadReservations(selectedDate),
+      loadUpcomingReservations(),
+    ]);
 
     setMessage(
       "Rezervasyon ödendi olarak işaretlendi."
@@ -887,6 +975,13 @@ export default function ReservationsPage() {
                 />
               </div>
             </section>
+
+            <UpcomingReservationsList
+              courts={courts}
+              loading={upcomingReservationsLoading}
+              reservations={upcomingReservations}
+              onSelectReservation={setSelectedReservation}
+            />
           </>
         )}
       </div>

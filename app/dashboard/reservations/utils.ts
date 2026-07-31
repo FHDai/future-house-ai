@@ -145,7 +145,8 @@ export function getPaymentStatusLabel(status: PaymentStatus) {
 
 export function getCalendarDays(
   visibleMonth: Date,
-  selectedDate: string
+  selectedDate: string,
+  reservationCounts: Record<string, number> = {}
 ): CalendarDay[] {
   const year = visibleMonth.getFullYear();
   const month = visibleMonth.getMonth();
@@ -173,6 +174,7 @@ export function getCalendarDays(
       dayNumber: date.getDate(),
       isCurrentMonth: date.getMonth() === month,
       isPast: dateValue < todayValue,
+      reservationCount: reservationCounts[dateValue] ?? 0,
       isToday: dateValue === todayValue,
       isSelected: dateValue === selectedDate,
     };

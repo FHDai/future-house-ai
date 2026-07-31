@@ -58,6 +58,7 @@ export type CalendarDay = {
   dayNumber: number;
   isCurrentMonth: boolean;
   isPast: boolean;
+  reservationCount: number;
   isToday: boolean;
   isSelected: boolean;
 };

@@ -98,6 +98,19 @@ export function ReservationCalendar({
           >
             {calendarDay.dayNumber}
 
+            {calendarDay.reservationCount > 0 && (
+              <span
+                className={`absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold ${
+                  calendarDay.isSelected
+                    ? "bg-black text-white"
+                    : "bg-emerald-500 text-black"
+                }`}
+                title={`${calendarDay.reservationCount} rezervasyon`}
+              >
+                {calendarDay.reservationCount}
+              </span>
+            )}
+
             {calendarDay.isToday &&
               !calendarDay.isSelected && (
                 <span className="absolute bottom-1.5 h-1 w-1 rounded-full bg-white" />
