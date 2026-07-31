@@ -2,6 +2,7 @@ import type {
   CalendarDay,
   PaymentStatus,
   Reservation,
+  ReservationAuditLog,
   ReservationForm,
   ReservationStatus,
 } from "./types";
@@ -252,6 +253,113 @@ export function getPaymentStatusLabel(status: PaymentStatus) {
   };
 
   return labels[status];
+}
+
+export function formatAuditDate(dateValue: string) {
+  return new Intl.DateTimeFormat("tr-TR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(dateValue));
+}
+
+export function getReservationAuditChanges(
+  auditLog: ReservationAuditLog
+) {
+  if (auditLog.operation === "INSERT") {
+    return ["Rezervasyon oluşturuldu."];
+  }
+
+  if (auditLog.operation === "DELETE") {
+    return ["Rezervasyon silindi."];
+  }
+
+  const previous = auditLog.old_record;
+  const next = auditLog.new_record;
+
+  if (!previous || !next) {
+    return ["Rezervasyon güncellendi."];
+  }
+
+  const changes: string[] = [];
+
+  if (previous.customer_name !== next.customer_name) {
+    changes.push(
+      `Müşteri: ${previous.customer_name ?? "—"} → ${
+        next.customer_name ?? "—"
+      }`
+    );
+  }
+
+  if (previous.customer_phone !== next.customer_phone) {
+    changes.push(
+      `Telefon: ${previous.customer_phone ?? "—"} → ${
+        next.customer_phone ?? "—"
+      }`
+    );
+  }
+
+  if (previous.reservation_date !== next.reservation_date) {
+    changes.push(
+      `Tarih: ${previous.reservation_date ?? "—"} → ${
+        next.reservation_date ?? "—"
+      }`
+    );
+  }
+
+  if (
+    normalizeTime(previous.start_time ?? "") !==
+      normalizeTime(next.start_time ?? "") ||
+    normalizeTime(previous.end_time ?? "") !==
+      normalizeTime(next.end_time ?? "")
+  ) {
+    changes.push(
+      `Saat: ${normalizeTime(previous.start_time ?? "—")}–${normalizeTime(
+        previous.end_time ?? "—"
+      )} → ${normalizeTime(next.start_time ?? "—")}–${normalizeTime(
+        next.end_time ?? "—"
+      )}`
+    );
+  }
+
+  if (previous.court_id !== next.court_id) {
+    changes.push("Saha değiştirildi.");
+  }
+
+  if (
+    previous.status &&
+    next.status &&
+    previous.status !== next.status
+  ) {
+    changes.push(
+      `Durum: ${getStatusLabel(previous.status)} → ${getStatusLabel(
+        next.status
+      )}`
+    );
+  }
+
+  if (
+    previous.payment_status &&
+    next.payment_status &&
+    previous.payment_status !== next.payment_status
+  ) {
+    changes.push(
+      `Ödeme: ${getPaymentStatusLabel(
+        previous.payment_status
+      )} → ${getPaymentStatusLabel(next.payment_status)}`
+    );
+  }
+
+  if (Number(previous.total_price) !== Number(next.total_price)) {
+    changes.push(
+      `Tutar: ${formatCurrency(
+        Number(previous.total_price ?? 0)
+      )} → ${formatCurrency(Number(next.total_price ?? 0))}`
+    );
+  }
+
+  return changes.length > 0
+    ? changes
+    : ["Rezervasyon güncellendi."];
 }
 
 export function getCalendarDays(

@@ -41,6 +41,17 @@ export type Reservation = {
   created_at: string;
 };
 
+export type ReservationAuditLog = {
+  id: string;
+  reservation_id: string;
+  court_id: string;
+  operation: "INSERT" | "UPDATE" | "DELETE";
+  old_record: Partial<Reservation> | null;
+  new_record: Partial<Reservation> | null;
+  changed_by: string | null;
+  changed_at: string;
+};
+
 export type ReservationForm = {
   courtId: string;
   customerName: string;
