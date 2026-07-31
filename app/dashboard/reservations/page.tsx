@@ -31,6 +31,7 @@ import {
   formatDateForInput,
   getCalendarDays,
   initialForm,
+  isReservationTimeAllowed,
   minutesToTime,
   SLOT_INTERVAL_MINUTES,
   timeToMinutes,
@@ -185,15 +186,30 @@ export default function ReservationsPage() {
           );
         }) ?? null;
 
+      const meetsLeadTime = isReservationTimeAllowed(
+        selectedDate,
+        startTime
+      );
+
       slots.push({
         time: startTime,
-        isAvailable: !conflictingReservation,
+        isAvailable:
+          !conflictingReservation && meetsLeadTime,
         reservation: conflictingReservation,
+        unavailableReason: conflictingReservation
+          ? "reserved"
+          : meetsLeadTime
+            ? null
+            : "lead-time",
       });
     }
 
     return slots;
-  }, [selectedCourtId, selectedCourtReservations]);
+  }, [
+    selectedCourtId,
+    selectedCourtReservations,
+    selectedDate,
+  ]);
 
   const loadReservations = useCallback(
     async (date: string) => {
@@ -370,6 +386,10 @@ export default function ReservationsPage() {
   };
 
   const selectCalendarDate = (calendarDay: CalendarDay) => {
+    if (calendarDay.isPast) {
+      return;
+    }
+
     setSelectedDate(calendarDay.dateValue);
     setSelectedReservation(null);
     setMessage("");
@@ -422,7 +442,23 @@ export default function ReservationsPage() {
       courts[0]?.id ||
       "";
 
-    const targetStartTime = startTime || "18:00";
+    const defaultStartTime = isReservationTimeAllowed(
+      selectedDate,
+      "18:00"
+    )
+      ? "18:00"
+      : timeSlots.find((slot) => slot.isAvailable)?.time;
+
+    if (!startTime && !defaultStartTime) {
+      setMessage(
+        "Bugün için en az 3 saat önceden oluşturulabilecek uygun bir rezervasyon saati kalmadı."
+      );
+      setMessageType("error");
+      return;
+    }
+
+    const targetStartTime =
+      startTime || defaultStartTime || "18:00";
 
     const targetEndTime = addMinutesToTime(
       targetStartTime,
@@ -528,6 +564,18 @@ export default function ReservationsPage() {
     ) {
       setFormMessage(
         "Rezervasyon saati 08:00 ile 24:00 arasında olmalıdır."
+      );
+      return;
+    }
+
+    if (
+      !isReservationTimeAllowed(
+        selectedDate,
+        form.startTime
+      )
+    ) {
+      setFormMessage(
+        "Rezervasyon başlangıcına en az 3 saat kalmalıdır. Geçmiş tarih ve saatler için rezervasyon oluşturamazsın."
       );
       return;
     }

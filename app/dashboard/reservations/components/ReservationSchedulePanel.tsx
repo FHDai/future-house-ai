@@ -158,6 +158,8 @@ export function ReservationSchedulePanel({
                 title={
                   slot.reservation
                     ? `${slot.reservation.customer_name} adına dolu`
+                    : slot.unavailableReason === "lead-time"
+                      ? "Rezervasyon başlangıcına en az 3 saat kalmalıdır"
                     : `${slot.time} için rezervasyon oluştur`
                 }
                 className={`rounded-xl border px-3 py-3 text-sm font-medium transition ${

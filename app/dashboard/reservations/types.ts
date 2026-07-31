@@ -57,6 +57,7 @@ export type CalendarDay = {
   dateValue: string;
   dayNumber: number;
   isCurrentMonth: boolean;
+  isPast: boolean;
   isToday: boolean;
   isSelected: boolean;
 };
@@ -65,4 +66,5 @@ export type TimeSlot = {
   time: string;
   isAvailable: boolean;
   reservation: Reservation | null;
+  unavailableReason: "reserved" | "lead-time" | null;
 };

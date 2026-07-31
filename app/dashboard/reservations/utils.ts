@@ -9,6 +9,7 @@ import type {
 export const DAY_START_HOUR = 8;
 export const DAY_END_HOUR = 24;
 export const SLOT_INTERVAL_MINUTES = 60;
+export const RESERVATION_LEAD_TIME_MINUTES = 180;
 
 export const initialForm: ReservationForm = {
   courtId: "",
@@ -33,6 +34,36 @@ export function parseDateValue(dateValue: string) {
   const [year, month, day] = dateValue.split("-").map(Number);
 
   return new Date(year, month - 1, day);
+}
+
+export function getReservationDateTime(
+  dateValue: string,
+  time: string
+) {
+  const date = parseDateValue(dateValue);
+  const [hour, minute] = normalizeTime(time)
+    .split(":")
+    .map(Number);
+
+  date.setHours(hour, minute, 0, 0);
+
+  return date;
+}
+
+export function isReservationTimeAllowed(
+  dateValue: string,
+  startTime: string,
+  now = new Date()
+) {
+  const reservationTime = getReservationDateTime(
+    dateValue,
+    startTime
+  );
+  const earliestAllowedTime = new Date(
+    now.getTime() + RESERVATION_LEAD_TIME_MINUTES * 60 * 1000
+  );
+
+  return reservationTime >= earliestAllowedTime;
 }
 
 export function formatDateForDisplay(dateValue: string) {
@@ -141,6 +172,7 @@ export function getCalendarDays(
       dateValue,
       dayNumber: date.getDate(),
       isCurrentMonth: date.getMonth() === month,
+      isPast: dateValue < todayValue,
       isToday: dateValue === todayValue,
       isSelected: dateValue === selectedDate,
     };
