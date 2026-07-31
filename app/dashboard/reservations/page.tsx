@@ -31,6 +31,7 @@ import {
   formatCurrency,
   formatDateForInput,
   getCalendarDays,
+  getReservationFormError,
   getReservationDateTime,
   initialForm,
   isReservationTimeAllowed,
@@ -681,36 +682,7 @@ export default function ReservationsPage() {
       });
 
     if (error) {
-      const normalizedErrorMessage =
-        error.message.toLowerCase();
-
-      const isOverlapError =
-        error.code === "23P01" ||
-        normalizedErrorMessage.includes(
-          "reservations_no_time_overlap"
-        ) ||
-        normalizedErrorMessage.includes(
-          "conflicting key"
-        );
-
-      const isBookingWindowError =
-        normalizedErrorMessage.includes(
-          "reservations_booking_window_violation"
-        );
-
-      if (isBookingWindowError) {
-        setFormMessage(
-          "Rezervasyon başlangıcına en az 3 saat kalmalıdır. Geçmiş tarih ve saatler için rezervasyon oluşturamazsın."
-        );
-      } else if (isOverlapError) {
-        setFormMessage(
-          "Bu saha için seçilen saat aralığında başka bir rezervasyon bulunuyor. Lütfen farklı bir saat seç."
-        );
-      } else {
-        setFormMessage(
-          `Rezervasyon oluşturulamadı: ${error.message}`
-        );
-      }
+      setFormMessage(getReservationFormError(error));
 
       setSaving(false);
       return;

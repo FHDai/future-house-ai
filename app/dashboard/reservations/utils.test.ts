@@ -4,6 +4,7 @@ import type { Reservation } from "./types";
 import {
   doTimesOverlap,
   getCalendarDays,
+  getReservationFormError,
   isReservationTimeAllowed,
 } from "./utils";
 
@@ -97,6 +98,39 @@ describe("doTimesOverlap", () => {
     );
     expect(doTimesOverlap("11:00", "12:00", reservation)).toBe(
       false
+    );
+  });
+});
+
+describe("getReservationFormError", () => {
+  it("returns a clear message for database time conflicts", () => {
+    expect(
+      getReservationFormError({
+        code: "23P01",
+        message: "conflicting key violates exclusion constraint",
+      })
+    ).toBe(
+      "Bu saha için seçilen saat aralığında başka bir rezervasyon bulunuyor. Lütfen farklı bir saat seç."
+    );
+  });
+
+  it("returns a clear message for booking window violations", () => {
+    expect(
+      getReservationFormError({
+        code: "P0001",
+        message: "reservations_booking_window_violation",
+      })
+    ).toContain("en az 3 saat");
+  });
+
+  it("keeps unexpected database errors visible", () => {
+    expect(
+      getReservationFormError({
+        code: "UNKNOWN",
+        message: "Unexpected database error",
+      })
+    ).toBe(
+      "Rezervasyon oluşturulamadı: Unexpected database error"
     );
   });
 });
