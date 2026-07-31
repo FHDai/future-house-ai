@@ -699,7 +699,16 @@ export default function ReservationsPage() {
           "conflicting key"
         );
 
-      if (isOverlapError) {
+      const isBookingWindowError =
+        normalizedErrorMessage.includes(
+          "reservations_booking_window_violation"
+        );
+
+      if (isBookingWindowError) {
+        setFormMessage(
+          "Rezervasyon başlangıcına en az 3 saat kalmalıdır. Geçmiş tarih ve saatler için rezervasyon oluşturamazsın."
+        );
+      } else if (isOverlapError) {
         setFormMessage(
           "Bu saha için seçilen saat aralığında başka bir rezervasyon bulunuyor. Lütfen farklı bir saat seç."
         );
