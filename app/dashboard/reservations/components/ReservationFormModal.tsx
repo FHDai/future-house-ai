@@ -5,18 +5,24 @@ import type {
   ReservationForm,
   ReservationStatus,
 } from "../types";
-import { formatDateForDisplay } from "../utils";
+import {
+  buildSpecialBookingMailto,
+  formatDateForDisplay,
+  isReservationDurationAllowed,
+} from "../utils";
 
 type ReservationFormModalProps = {
   courts: Court[];
+  mode: "create" | "edit";
   form: ReservationForm;
   formMessage: string;
+  reservationDate: string;
   saving: boolean;
-  selectedDate: string;
   onClose: () => void;
   onCourtChange: (courtId: string) => void;
   onCustomerNameChange: (value: string) => void;
   onCustomerPhoneChange: (value: string) => void;
+  onDateChange: (value: string) => void;
   onPaymentStatusChange: (value: PaymentStatus) => void;
   onStatusChange: (value: ReservationStatus) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -29,33 +35,53 @@ type ReservationFormModalProps = {
 
 export function ReservationFormModal({
   courts,
+  mode,
   form,
   formMessage,
+  reservationDate,
   saving,
-  selectedDate,
   onClose,
   onCourtChange,
   onCustomerNameChange,
   onCustomerPhoneChange,
+  onDateChange,
   onPaymentStatusChange,
   onStatusChange,
   onSubmit,
   onTimeChange,
   onTotalPriceChange,
 }: ReservationFormModalProps) {
+  const isEditing = mode === "edit";
+  const selectedCourtName =
+    courts.find((court) => court.id === form.courtId)?.name ??
+    "";
+  const durationIsAllowed = isReservationDurationAllowed(
+    form.startTime,
+    form.endTime
+  );
+  const specialBookingMailto = buildSpecialBookingMailto({
+    courtName: selectedCourtName,
+    customerName: form.customerName,
+    endTime: form.endTime,
+    reservationDate,
+    startTime: form.startTime,
+  });
+
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 px-4 py-8 backdrop-blur-sm">
       <div className="w-full max-w-2xl rounded-3xl border border-gray-800 bg-neutral-950 p-6 shadow-2xl md:p-8">
         <div className="flex items-start justify-between gap-5">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-gray-500">
-              Yeni Rezervasyon
+              {isEditing
+                ? "Rezervasyonu Düzenle"
+                : "Yeni Rezervasyon"}
             </p>
             <h2 className="mt-3 text-2xl font-semibold">
               Rezervasyon bilgileri
             </h2>
             <p className="mt-2 capitalize text-sm text-gray-500">
-              {formatDateForDisplay(selectedDate)}
+              {formatDateForDisplay(reservationDate)}
             </p>
           </div>
 
@@ -72,7 +98,9 @@ export function ReservationFormModal({
         {formMessage && (
           <div className="mt-6 rounded-xl border border-red-900 bg-red-950/40 px-4 py-4 text-sm text-red-200">
             <p className="font-medium">
-              Rezervasyon oluşturulamadı
+              {isEditing
+                ? "Rezervasyon güncellenemedi"
+                : "Rezervasyon oluşturulamadı"}
             </p>
             <p className="mt-1 text-red-300">{formMessage}</p>
           </div>
@@ -82,6 +110,23 @@ export function ReservationFormModal({
           onSubmit={onSubmit}
           className="mt-7 grid gap-5 md:grid-cols-2"
         >
+          {isEditing && (
+            <div className="md:col-span-2">
+              <label className="mb-2 block text-sm text-gray-300">
+                Tarih
+              </label>
+              <input
+                type="date"
+                value={reservationDate}
+                onChange={(event) =>
+                  onDateChange(event.target.value)
+                }
+                disabled={saving}
+                className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 outline-none focus:border-white disabled:opacity-60"
+              />
+            </div>
+          )}
+
           <div className="md:col-span-2">
             <label className="mb-2 block text-sm text-gray-300">
               Saha
@@ -101,6 +146,34 @@ export function ReservationFormModal({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div
+            className={`rounded-2xl border px-4 py-4 md:col-span-2 ${
+              durationIsAllowed
+                ? "border-amber-900/70 bg-amber-950/20"
+                : "border-amber-700 bg-amber-950/40"
+            }`}
+          >
+            <p className="text-sm font-medium text-amber-200">
+              Uzun süreli kiralama veya özel etkinlik
+            </p>
+            <p className="mt-1 text-sm text-amber-300/80">
+              Standart rezervasyonlar en fazla 2 saattir. Daha
+              uzun kiralama, turnuva, organizasyon veya farklı bir
+              etkinlik için bizimle iletişime geç.
+            </p>
+            {!durationIsAllowed && (
+              <p className="mt-2 text-sm font-medium text-amber-200">
+                Seçtiğin saat aralığı 2 saat sınırını aşıyor.
+              </p>
+            )}
+            <a
+              href={specialBookingMailto}
+              className="mt-3 inline-flex rounded-xl border border-amber-700 px-4 py-2.5 text-sm font-semibold text-amber-100 transition hover:bg-amber-900/40"
+            >
+              E-posta ile iletişime geç
+            </a>
           </div>
 
           <div>
@@ -249,7 +322,9 @@ export function ReservationFormModal({
             >
               {saving
                 ? "Kaydediliyor..."
-                : "Rezervasyonu Oluştur"}
+                : isEditing
+                  ? "Değişiklikleri Kaydet"
+                  : "Rezervasyonu Oluştur"}
             </button>
           </div>
         </form>

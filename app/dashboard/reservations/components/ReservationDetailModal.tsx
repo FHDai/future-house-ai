@@ -13,6 +13,7 @@ type ReservationDetailModalProps = {
   onCancel: () => void;
   onClose: () => void;
   onComplete: () => void;
+  onEdit: () => void;
   onMarkAsPaid: () => void;
 };
 
@@ -22,6 +23,7 @@ export function ReservationDetailModal({
   onCancel,
   onClose,
   onComplete,
+  onEdit,
   onMarkAsPaid,
 }: ReservationDetailModalProps) {
   const courtName =
@@ -104,6 +106,17 @@ export function ReservationDetailModal({
 
         {reservation.status !== "cancelled" && (
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            {(reservation.status === "pending" ||
+              reservation.status === "confirmed") && (
+              <button
+                type="button"
+                onClick={onEdit}
+                className="rounded-xl border border-blue-800 px-4 py-3 text-sm font-medium text-blue-300 transition hover:bg-blue-950"
+              >
+                Rezervasyonu Düzenle
+              </button>
+            )}
+
             {reservation.payment_status !== "paid" && (
               <button
                 type="button"

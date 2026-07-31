@@ -10,6 +10,9 @@ export const DAY_START_HOUR = 8;
 export const DAY_END_HOUR = 24;
 export const SLOT_INTERVAL_MINUTES = 60;
 export const RESERVATION_LEAD_TIME_MINUTES = 180;
+export const MAX_RESERVATION_DURATION_MINUTES = 120;
+export const SPECIAL_BOOKING_CONTACT_EMAIL =
+  "kerem@futurehouse.digital";
 
 type ReservationDatabaseError = {
   code?: string | null;
@@ -72,7 +75,8 @@ export function isReservationTimeAllowed(
 }
 
 export function getReservationFormError(
-  error: ReservationDatabaseError
+  error: ReservationDatabaseError,
+  action: "create" | "update" = "create"
 ) {
   const normalizedMessage = error.message.toLowerCase();
 
@@ -94,7 +98,83 @@ export function getReservationFormError(
     return "Bu saha için seçilen saat aralığında başka bir rezervasyon bulunuyor. Lütfen farklı bir saat seç.";
   }
 
-  return `Rezervasyon oluşturulamadı: ${error.message}`;
+  if (
+    error.code === "23514" &&
+    normalizedMessage.includes(
+      "reservations_max_two_hours"
+    )
+  ) {
+    return "Standart rezervasyon süresi en fazla 2 saat olabilir. Daha uzun kiralama veya özel etkinlik için iletişime geç.";
+  }
+
+  const actionLabel =
+    action === "update" ? "güncellenemedi" : "oluşturulamadı";
+
+  return `Rezervasyon ${actionLabel}: ${error.message}`;
+}
+
+export function isReservationDurationAllowed(
+  startTime: string,
+  endTime: string
+) {
+  const duration =
+    timeToMinutes(endTime) - timeToMinutes(startTime);
+
+  return (
+    duration > 0 &&
+    duration <= MAX_RESERVATION_DURATION_MINUTES
+  );
+}
+
+type SpecialBookingMailOptions = {
+  courtName: string;
+  customerName: string;
+  endTime: string;
+  reservationDate: string;
+  startTime: string;
+};
+
+export function buildSpecialBookingMailto({
+  courtName,
+  customerName,
+  endTime,
+  reservationDate,
+  startTime,
+}: SpecialBookingMailOptions) {
+  const subject = "Uzun süreli kiralama / özel etkinlik talebi";
+  const body = [
+    "Merhaba,",
+    "",
+    "2 saatten uzun kiralama veya özel etkinlik için bilgi almak istiyorum.",
+    "",
+    `Müşteri: ${customerName || "Belirtilmedi"}`,
+    `Tarih: ${reservationDate}`,
+    `Saha: ${courtName || "Belirtilmedi"}`,
+    `Saat: ${startTime} - ${endTime}`,
+    "",
+    "Talep detayı:",
+  ].join("\n");
+
+  return `mailto:${SPECIAL_BOOKING_CONTACT_EMAIL}?subject=${encodeURIComponent(
+    subject
+  )}&body=${encodeURIComponent(body)}`;
+}
+
+export function hasReservationScheduleChanged(
+  reservation: Reservation,
+  reservationDate: string,
+  courtId: string,
+  startTime: string,
+  endTime: string
+) {
+  return (
+    reservation.reservation_date !== reservationDate ||
+    reservation.court_id !== courtId ||
+    normalizeTime(reservation.start_time) !==
+      normalizeTime(startTime) ||
+    normalizeTime(reservation.end_time) !==
+      normalizeTime(endTime)
+  );
 }
 
 export function formatDateForDisplay(dateValue: string) {

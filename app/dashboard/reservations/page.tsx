@@ -33,9 +33,13 @@ import {
   getCalendarDays,
   getReservationFormError,
   getReservationDateTime,
+  hasReservationScheduleChanged,
   initialForm,
+  isReservationDurationAllowed,
   isReservationTimeAllowed,
   minutesToTime,
+  normalizeTime,
+  parseDateValue,
   SLOT_INTERVAL_MINUTES,
   timeToMinutes,
 } from "./utils";
@@ -82,6 +86,9 @@ export default function ReservationsPage() {
   const [saving, setSaving] = useState(false);
 
   const [showForm, setShowForm] = useState(false);
+  const [formDate, setFormDate] = useState(selectedDate);
+  const [editingReservation, setEditingReservation] =
+    useState<Reservation | null>(null);
 
   const [selectedReservation, setSelectedReservation] =
     useState<Reservation | null>(null);
@@ -548,6 +555,29 @@ export default function ReservationsPage() {
       ),
     });
 
+    setFormDate(selectedDate);
+    setEditingReservation(null);
+    setFormMessage("");
+    setMessage("");
+    setSelectedReservation(null);
+    setShowForm(true);
+  };
+
+  const openReservationEditForm = (
+    reservation: Reservation
+  ) => {
+    setForm({
+      courtId: reservation.court_id,
+      customerName: reservation.customer_name,
+      customerPhone: reservation.customer_phone ?? "",
+      startTime: normalizeTime(reservation.start_time),
+      endTime: normalizeTime(reservation.end_time),
+      status: reservation.status,
+      paymentStatus: reservation.payment_status,
+      totalPrice: String(reservation.total_price),
+    });
+    setFormDate(reservation.reservation_date);
+    setEditingReservation(reservation);
     setFormMessage("");
     setMessage("");
     setSelectedReservation(null);
@@ -561,6 +591,7 @@ export default function ReservationsPage() {
 
     setShowForm(false);
     setFormMessage("");
+    setEditingReservation(null);
   };
 
   const updateFormCourt = (courtId: string) => {
@@ -598,7 +629,7 @@ export default function ReservationsPage() {
     setFormMessage("");
   };
 
-  const handleCreateReservation = async (
+  const handleSaveReservation = async (
     event: FormEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
@@ -640,8 +671,31 @@ export default function ReservationsPage() {
     }
 
     if (
+      !isReservationDurationAllowed(
+        form.startTime,
+        form.endTime
+      )
+    ) {
+      setFormMessage(
+        "Standart rezervasyon süresi en fazla 2 saat olabilir. Daha uzun kiralama veya özel etkinlik için e-posta ile iletişime geç."
+      );
+      return;
+    }
+
+    const scheduleChanged =
+      !editingReservation ||
+      hasReservationScheduleChanged(
+        editingReservation,
+        formDate,
+        form.courtId,
+        form.startTime,
+        form.endTime
+      );
+
+    if (
+      scheduleChanged &&
       !isReservationTimeAllowed(
-        selectedDate,
+        formDate,
         form.startTime
       )
     ) {
@@ -666,23 +720,47 @@ export default function ReservationsPage() {
 
     setSaving(true);
 
-    const { error } = await supabase
-      .from("reservations")
-      .insert({
-        court_id: form.courtId,
-        customer_name: form.customerName.trim(),
-        customer_phone:
-          form.customerPhone.trim() || null,
-        reservation_date: selectedDate,
-        start_time: form.startTime,
-        end_time: form.endTime,
-        status: form.status,
-        total_price: numericPrice,
-        payment_status: form.paymentStatus,
-      });
+    const reservationValues = {
+      court_id: form.courtId,
+      customer_name: form.customerName.trim(),
+      customer_phone: form.customerPhone.trim() || null,
+      reservation_date: formDate,
+      start_time: form.startTime,
+      end_time: form.endTime,
+      status: form.status,
+      total_price: numericPrice,
+      payment_status: form.paymentStatus,
+    };
+
+    const { error } = editingReservation
+      ? await supabase
+          .from("reservations")
+          .update(
+            scheduleChanged
+              ? reservationValues
+              : {
+                  customer_name:
+                    reservationValues.customer_name,
+                  customer_phone:
+                    reservationValues.customer_phone,
+                  status: reservationValues.status,
+                  total_price: reservationValues.total_price,
+                  payment_status:
+                    reservationValues.payment_status,
+                }
+          )
+          .eq("id", editingReservation.id)
+      : await supabase
+          .from("reservations")
+          .insert(reservationValues);
 
     if (error) {
-      setFormMessage(getReservationFormError(error));
+      setFormMessage(
+        getReservationFormError(
+          error,
+          editingReservation ? "update" : "create"
+        )
+      );
 
       setSaving(false);
       return;
@@ -692,14 +770,29 @@ export default function ReservationsPage() {
     setShowForm(false);
     setFormMessage("");
     setForm(initialForm);
+    setEditingReservation(null);
+
+    if (formDate !== selectedDate) {
+      const updatedDate = parseDateValue(formDate);
+      setSelectedDate(formDate);
+      setVisibleMonth(
+        new Date(
+          updatedDate.getFullYear(),
+          updatedDate.getMonth(),
+          1
+        )
+      );
+    }
 
     await Promise.all([
-      loadReservations(selectedDate),
+      loadReservations(formDate),
       loadUpcomingReservations(),
     ]);
 
     setMessage(
-      "Rezervasyon başarıyla oluşturuldu."
+      editingReservation
+        ? "Rezervasyon başarıyla güncellendi."
+        : "Rezervasyon başarıyla oluşturuldu."
     );
     setMessageType("success");
   };
@@ -981,10 +1074,11 @@ export default function ReservationsPage() {
       {showForm && (
         <ReservationFormModal
           courts={courts}
+          mode={editingReservation ? "edit" : "create"}
           form={form}
           formMessage={formMessage}
+          reservationDate={formDate}
           saving={saving}
-          selectedDate={selectedDate}
           onClose={closeReservationForm}
           onCourtChange={updateFormCourt}
           onCustomerNameChange={(customerName) => {
@@ -1000,6 +1094,10 @@ export default function ReservationsPage() {
               customerPhone,
             }))
           }
+          onDateChange={(reservationDate) => {
+            setFormDate(reservationDate);
+            setFormMessage("");
+          }}
           onPaymentStatusChange={(paymentStatus) =>
             setForm((currentForm) => ({
               ...currentForm,
@@ -1012,7 +1110,7 @@ export default function ReservationsPage() {
               status,
             }))
           }
-          onSubmit={handleCreateReservation}
+          onSubmit={handleSaveReservation}
           onTimeChange={updateFormTime}
           onTotalPriceChange={(totalPrice) => {
             setForm((currentForm) => ({
@@ -1034,6 +1132,9 @@ export default function ReservationsPage() {
           onClose={() => setSelectedReservation(null)}
           onComplete={() =>
             handleCompleteReservation(selectedReservation)
+          }
+          onEdit={() =>
+            openReservationEditForm(selectedReservation)
           }
           onMarkAsPaid={() =>
             handleMarkAsPaid(selectedReservation)
