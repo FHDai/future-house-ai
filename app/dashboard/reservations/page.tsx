@@ -10,239 +10,34 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-
-type Facility = {
-  id: string;
-  name: string;
-};
-
-type Court = {
-  id: string;
-  facility_id: string;
-  name: string;
-  sport_type: string;
-  price_per_hour: number;
-  is_active: boolean;
-  facilities: {
-    name: string;
-  }[] | null;
-};
-
-type ReservationStatus =
-  | "pending"
-  | "confirmed"
-  | "cancelled"
-  | "completed";
-
-type PaymentStatus =
-  | "unpaid"
-  | "partial"
-  | "paid"
-  | "refunded";
-
-type Reservation = {
-  id: string;
-  court_id: string;
-  customer_name: string;
-  customer_phone: string | null;
-  reservation_date: string;
-  start_time: string;
-  end_time: string;
-  status: ReservationStatus;
-  total_price: number;
-  payment_status: PaymentStatus;
-  created_at: string;
-};
-
-type ReservationForm = {
-  courtId: string;
-  customerName: string;
-  customerPhone: string;
-  startTime: string;
-  endTime: string;
-  status: ReservationStatus;
-  paymentStatus: PaymentStatus;
-  totalPrice: string;
-};
-
-type CalendarDay = {
-  date: Date;
-  dateValue: string;
-  dayNumber: number;
-  isCurrentMonth: boolean;
-  isToday: boolean;
-  isSelected: boolean;
-};
-
-type TimeSlot = {
-  time: string;
-  isAvailable: boolean;
-  reservation: Reservation | null;
-};
-
-const DAY_START_HOUR = 8;
-const DAY_END_HOUR = 24;
-const SLOT_INTERVAL_MINUTES = 60;
-
-const initialForm: ReservationForm = {
-  courtId: "",
-  customerName: "",
-  customerPhone: "",
-  startTime: "18:00",
-  endTime: "19:00",
-  status: "confirmed",
-  paymentStatus: "unpaid",
-  totalPrice: "",
-};
-
-function formatDateForInput(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function parseDateValue(dateValue: string) {
-  const [year, month, day] = dateValue.split("-").map(Number);
-
-  return new Date(year, month - 1, day);
-}
-
-function formatDateForDisplay(dateValue: string) {
-  const date = parseDateValue(dateValue);
-
-  return new Intl.DateTimeFormat("tr-TR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(date);
-}
-
-function formatMonthTitle(date: Date) {
-  return new Intl.DateTimeFormat("tr-TR", {
-    month: "long",
-    year: "numeric",
-  }).format(date);
-}
-
-function normalizeTime(time: string) {
-  return time.slice(0, 5);
-}
-
-function timeToMinutes(time: string) {
-  const normalizedTime = normalizeTime(time);
-  const [hour, minute] = normalizedTime.split(":").map(Number);
-
-  return hour * 60 + minute;
-}
-
-function minutesToTime(minutes: number) {
-  const hour = Math.floor(minutes / 60);
-  const minute = minutes % 60;
-
-  return `${String(hour).padStart(2, "0")}:${String(
-    minute
-  ).padStart(2, "0")}`;
-}
-
-function addMinutesToTime(time: string, minutesToAdd: number) {
-  const totalMinutes = timeToMinutes(time) + minutesToAdd;
-
-  return minutesToTime(totalMinutes);
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("tr-TR", {
-    style: "currency",
-    currency: "TRY",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-function getStatusLabel(status: ReservationStatus) {
-  const labels: Record<ReservationStatus, string> = {
-    pending: "Bekliyor",
-    confirmed: "Onaylandı",
-    cancelled: "İptal",
-    completed: "Tamamlandı",
-  };
-
-  return labels[status];
-}
-
-function getPaymentStatusLabel(status: PaymentStatus) {
-  const labels: Record<PaymentStatus, string> = {
-    unpaid: "Ödenmedi",
-    partial: "Kısmi Ödendi",
-    paid: "Ödendi",
-    refunded: "İade Edildi",
-  };
-
-  return labels[status];
-}
-
-function getCalendarDays(
-  visibleMonth: Date,
-  selectedDate: string
-): CalendarDay[] {
-  const year = visibleMonth.getFullYear();
-  const month = visibleMonth.getMonth();
-
-  const firstDayOfMonth = new Date(year, month, 1);
-
-  const mondayBasedDay =
-    firstDayOfMonth.getDay() === 0
-      ? 6
-      : firstDayOfMonth.getDay() - 1;
-
-  const calendarStartDate = new Date(
-    year,
-    month,
-    1 - mondayBasedDay
-  );
-
-  const todayValue = formatDateForInput(new Date());
-
-  return Array.from({ length: 42 }, (_, index) => {
-    const date = new Date(calendarStartDate);
-    date.setDate(calendarStartDate.getDate() + index);
-
-    const dateValue = formatDateForInput(date);
-
-    return {
-      date,
-      dateValue,
-      dayNumber: date.getDate(),
-      isCurrentMonth: date.getMonth() === month,
-      isToday: dateValue === todayValue,
-      isSelected: dateValue === selectedDate,
-    };
-  });
-}
-
-function doTimesOverlap(
-  startTime: string,
-  endTime: string,
-  reservation: Reservation
-) {
-  const slotStart = timeToMinutes(startTime);
-  const slotEnd = timeToMinutes(endTime);
-
-  const reservationStart = timeToMinutes(
-    reservation.start_time
-  );
-
-  const reservationEnd = timeToMinutes(
-    reservation.end_time
-  );
-
-  return (
-    slotStart < reservationEnd &&
-    slotEnd > reservationStart
-  );
-}
+import type {
+  CalendarDay,
+  Court,
+  Facility,
+  PaymentStatus,
+  Reservation,
+  ReservationForm,
+  ReservationStatus,
+  TimeSlot,
+} from "./types";
+import {
+  addMinutesToTime,
+  DAY_END_HOUR,
+  DAY_START_HOUR,
+  doTimesOverlap,
+  formatCurrency,
+  formatDateForDisplay,
+  formatDateForInput,
+  formatMonthTitle,
+  getCalendarDays,
+  getPaymentStatusLabel,
+  getStatusLabel,
+  initialForm,
+  minutesToTime,
+  normalizeTime,
+  SLOT_INTERVAL_MINUTES,
+  timeToMinutes,
+} from "./utils";
 
 export default function ReservationsPage() {
   const router = useRouter();
