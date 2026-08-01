@@ -22,6 +22,7 @@ type ReservationDatabaseError = {
 
 export const initialForm: ReservationForm = {
   courtId: "",
+  customerId: "",
   customerName: "",
   customerPhone: "",
   startTime: "18:00",
@@ -29,6 +30,7 @@ export const initialForm: ReservationForm = {
   status: "confirmed",
   paymentStatus: "unpaid",
   totalPrice: "",
+  saveCustomer: false,
 };
 
 export function formatDateForInput(date: Date) {
@@ -87,6 +89,14 @@ export function getReservationFormError(
     )
   ) {
     return "Rezervasyon başlangıcına en az 3 saat kalmalıdır. Geçmiş tarih ve saatler için rezervasyon oluşturamazsın.";
+  }
+
+  if (
+    normalizedMessage.includes(
+      "reservation_customer_ownership_violation"
+    )
+  ) {
+    return "Seçilen müşteri bu işletmeye ait değil. Lütfen müşteri listesinden yeniden seçim yap.";
   }
 
   if (

@@ -1,6 +1,7 @@
-import type { FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import type {
   Court,
+  Customer,
   PaymentStatus,
   ReservationForm,
   ReservationStatus,
@@ -13,6 +14,7 @@ import {
 
 type ReservationFormModalProps = {
   courts: Court[];
+  customers: Customer[];
   mode: "create" | "edit";
   form: ReservationForm;
   formMessage: string;
@@ -22,8 +24,10 @@ type ReservationFormModalProps = {
   onCourtChange: (courtId: string) => void;
   onCustomerNameChange: (value: string) => void;
   onCustomerPhoneChange: (value: string) => void;
+  onCustomerSelect: (customer: Customer | null) => void;
   onDateChange: (value: string) => void;
   onPaymentStatusChange: (value: PaymentStatus) => void;
+  onSaveCustomerChange: (value: boolean) => void;
   onStatusChange: (value: ReservationStatus) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onTimeChange: (
@@ -35,6 +39,7 @@ type ReservationFormModalProps = {
 
 export function ReservationFormModal({
   courts,
+  customers,
   mode,
   form,
   formMessage,
@@ -44,14 +49,43 @@ export function ReservationFormModal({
   onCourtChange,
   onCustomerNameChange,
   onCustomerPhoneChange,
+  onCustomerSelect,
   onDateChange,
   onPaymentStatusChange,
+  onSaveCustomerChange,
   onStatusChange,
   onSubmit,
   onTimeChange,
   onTotalPriceChange,
 }: ReservationFormModalProps) {
   const isEditing = mode === "edit";
+  const [customerSearch, setCustomerSearch] = useState(
+    () =>
+      customers.find(
+        (customer) => customer.id === form.customerId
+      )?.full_name ?? ""
+  );
+  const [customerPickerOpen, setCustomerPickerOpen] =
+    useState(false);
+  const filteredCustomers = useMemo(() => {
+    const searchValue = customerSearch.trim().toLocaleLowerCase("tr-TR");
+
+    if (!searchValue) {
+      return customers.slice(0, 6);
+    }
+
+    return customers
+      .filter((customer) =>
+        [customer.full_name, customer.phone, customer.email]
+          .filter(Boolean)
+          .some((value) =>
+            value
+              ?.toLocaleLowerCase("tr-TR")
+              .includes(searchValue)
+          )
+      )
+      .slice(0, 6);
+  }, [customerSearch, customers]);
   const selectedCourtName =
     courts.find((court) => court.id === form.courtId)?.name ??
     "";
@@ -176,6 +210,79 @@ export function ReservationFormModal({
             </a>
           </div>
 
+          <div className="relative">
+            <label className="mb-2 block text-sm text-gray-300">
+              Kayıtlı Müşteri
+            </label>
+            <input
+              type="search"
+              value={customerSearch}
+              onFocus={() => setCustomerPickerOpen(true)}
+              onBlur={() => {
+                window.setTimeout(
+                  () => setCustomerPickerOpen(false),
+                  150
+                );
+              }}
+              onChange={(event) => {
+                setCustomerSearch(event.target.value);
+                setCustomerPickerOpen(true);
+              }}
+              placeholder="Ad, telefon veya e-posta ara"
+              disabled={saving}
+              className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 outline-none focus:border-white disabled:opacity-60"
+            />
+            {customerPickerOpen && (
+              <div className="absolute z-20 mt-2 max-h-52 w-full space-y-1 overflow-y-auto rounded-xl border border-gray-700 bg-gray-950 p-1 shadow-2xl">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomerSearch("");
+                    setCustomerPickerOpen(false);
+                    onCustomerSelect(null);
+                  }}
+                  disabled={saving}
+                  className={`w-full rounded-lg px-3 py-2 text-left text-sm transition ${
+                    form.customerId
+                      ? "text-gray-400 hover:bg-gray-900"
+                      : "bg-gray-800 text-white"
+                  }`}
+                >
+                  Misafir / Yeni müşteri
+                </button>
+                {filteredCustomers.map((customer) => (
+                  <button
+                    key={customer.id}
+                    type="button"
+                    onClick={() => {
+                      setCustomerSearch(customer.full_name);
+                      setCustomerPickerOpen(false);
+                      onCustomerSelect(customer);
+                    }}
+                    disabled={saving}
+                    className={`w-full rounded-lg px-3 py-2 text-left text-sm transition ${
+                      form.customerId === customer.id
+                        ? "bg-gray-800 text-white"
+                        : "text-gray-400 hover:bg-gray-900"
+                    }`}
+                  >
+                    <span className="block font-medium">
+                      {customer.full_name}
+                    </span>
+                    <span className="mt-0.5 block text-xs text-gray-600">
+                      {customer.phone || customer.email || "İletişim bilgisi yok"}
+                    </span>
+                  </button>
+                ))}
+                {filteredCustomers.length === 0 && (
+                  <p className="px-3 py-2 text-sm text-gray-600">
+                    Eşleşen müşteri bulunamadı.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
           <div>
             <label className="mb-2 block text-sm text-gray-300">
               Müşteri Adı
@@ -191,6 +298,21 @@ export function ReservationFormModal({
               className="w-full rounded-xl border border-gray-700 bg-gray-900 px-4 py-3 outline-none focus:border-white disabled:opacity-60"
             />
           </div>
+
+          {!form.customerId && (
+            <label className="flex items-center gap-3 rounded-xl border border-gray-800 px-4 py-3 text-sm text-gray-300 md:col-span-2">
+              <input
+                type="checkbox"
+                checked={form.saveCustomer}
+                onChange={(event) =>
+                  onSaveCustomerChange(event.target.checked)
+                }
+                disabled={saving}
+                className="h-4 w-4"
+              />
+              Bu kişiyi müşteri listesine kaydet
+            </label>
+          )}
 
           <div>
             <label className="mb-2 block text-sm text-gray-300">

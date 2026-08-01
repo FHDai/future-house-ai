@@ -18,6 +18,7 @@ import { UpcomingReservationsList } from "./components/UpcomingReservationsList"
 import type {
   CalendarDay,
   Court,
+  Customer,
   Facility,
   Reservation,
   ReservationAuditLog,
@@ -50,6 +51,7 @@ export default function ReservationsPage() {
 
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [courts, setCourts] = useState<Court[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [reservations, setReservations] = useState<
     Reservation[]
   >([]);
@@ -260,6 +262,7 @@ export default function ReservationsPage() {
         .select(`
           id,
           court_id,
+          customer_id,
           customer_name,
           customer_phone,
           reservation_date,
@@ -297,6 +300,7 @@ export default function ReservationsPage() {
       .select(`
         id,
         court_id,
+        customer_id,
         customer_name,
         customer_phone,
         reservation_date,
@@ -400,7 +404,7 @@ export default function ReservationsPage() {
       return;
     }
 
-    const [facilitiesResult, courtsResult] =
+    const [facilitiesResult, courtsResult, customersResult] =
       await Promise.all([
         supabase
           .from("facilities")
@@ -422,6 +426,11 @@ export default function ReservationsPage() {
           `)
           .eq("is_active", true)
           .order("name", { ascending: true }),
+
+        supabase
+          .from("customers")
+          .select("id, full_name, phone, email")
+          .order("full_name", { ascending: true }),
       ]);
 
     if (facilitiesResult.error) {
@@ -442,6 +451,15 @@ export default function ReservationsPage() {
       return;
     }
 
+    if (customersResult.error) {
+      setMessage(
+        `Müşteriler yüklenemedi: ${customersResult.error.message}`
+      );
+      setMessageType("error");
+      setPageLoading(false);
+      return;
+    }
+
     const facilityData =
       (facilitiesResult.data ?? []) as Facility[];
 
@@ -450,6 +468,7 @@ export default function ReservationsPage() {
 
     setFacilities(facilityData);
     setCourts(courtData);
+    setCustomers((customersResult.data ?? []) as Customer[]);
 
     if (courtData.length > 0) {
       setSelectedCourtId(courtData[0].id);
@@ -624,6 +643,7 @@ export default function ReservationsPage() {
   ) => {
     setForm({
       courtId: reservation.court_id,
+      customerId: reservation.customer_id ?? "",
       customerName: reservation.customer_name,
       customerPhone: reservation.customer_phone ?? "",
       startTime: normalizeTime(reservation.start_time),
@@ -631,6 +651,7 @@ export default function ReservationsPage() {
       status: reservation.status,
       paymentStatus: reservation.payment_status,
       totalPrice: String(reservation.total_price),
+      saveCustomer: false,
     });
     setFormDate(reservation.reservation_date);
     setEditingReservation(reservation);
@@ -776,8 +797,51 @@ export default function ReservationsPage() {
 
     setSaving(true);
 
+    let customerId = form.customerId || null;
+    let createdCustomer: Customer | null = null;
+
+    if (!customerId && form.saveCustomer) {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        setSaving(false);
+        router.push("/login");
+        return;
+      }
+
+      const { data: newCustomer, error: customerError } =
+        await supabase
+          .from("customers")
+          .insert({
+            owner_id: user.id,
+            full_name: form.customerName.trim(),
+            phone: form.customerPhone.trim() || null,
+            email: null,
+            notes: null,
+          })
+          .select("id, full_name, phone, email")
+          .single();
+
+      if (customerError) {
+        setFormMessage(
+          customerError.code === "23505"
+            ? "Bu telefon numarasıyla kayıtlı bir müşteri zaten bulunuyor. Kayıtlı müşteriyi arayıp seçebilirsin."
+            : `Müşteri oluşturulamadı: ${customerError.message}`
+        );
+        setSaving(false);
+        return;
+      }
+
+      customerId = newCustomer.id;
+      createdCustomer = newCustomer as Customer;
+    }
+
     const reservationValues = {
       court_id: form.courtId,
+      customer_id: customerId,
       customer_name: form.customerName.trim(),
       customer_phone: form.customerPhone.trim() || null,
       reservation_date: formDate,
@@ -799,6 +863,7 @@ export default function ReservationsPage() {
                     reservationValues.customer_name,
                   customer_phone:
                     reservationValues.customer_phone,
+                  customer_id: reservationValues.customer_id,
                   status: reservationValues.status,
                   total_price: reservationValues.total_price,
                   payment_status:
@@ -811,6 +876,13 @@ export default function ReservationsPage() {
           .insert(reservationValues);
 
     if (error) {
+      if (createdCustomer) {
+        await supabase
+          .from("customers")
+          .delete()
+          .eq("id", createdCustomer.id);
+      }
+
       setFormMessage(
         getReservationFormError(
           error,
@@ -820,6 +892,18 @@ export default function ReservationsPage() {
 
       setSaving(false);
       return;
+    }
+
+    if (createdCustomer) {
+      setCustomers((currentCustomers) =>
+        [...currentCustomers, createdCustomer as Customer].sort(
+          (firstCustomer, secondCustomer) =>
+            firstCustomer.full_name.localeCompare(
+              secondCustomer.full_name,
+              "tr"
+            )
+        )
+      );
     }
 
     setSaving(false);
@@ -1130,6 +1214,7 @@ export default function ReservationsPage() {
       {showForm && (
         <ReservationFormModal
           courts={courts}
+          customers={customers}
           mode={editingReservation ? "edit" : "create"}
           form={form}
           formMessage={formMessage}
@@ -1150,6 +1235,19 @@ export default function ReservationsPage() {
               customerPhone,
             }))
           }
+          onCustomerSelect={(customer) => {
+            setForm((currentForm) => ({
+              ...currentForm,
+              customerId: customer?.id ?? "",
+              customerName:
+                customer?.full_name ?? currentForm.customerName,
+              customerPhone:
+                customer?.phone ??
+                (customer ? "" : currentForm.customerPhone),
+              saveCustomer: false,
+            }));
+            setFormMessage("");
+          }}
           onDateChange={(reservationDate) => {
             setFormDate(reservationDate);
             setFormMessage("");
@@ -1158,6 +1256,12 @@ export default function ReservationsPage() {
             setForm((currentForm) => ({
               ...currentForm,
               paymentStatus,
+            }))
+          }
+          onSaveCustomerChange={(saveCustomer) =>
+            setForm((currentForm) => ({
+              ...currentForm,
+              saveCustomer,
             }))
           }
           onStatusChange={(status) =>
