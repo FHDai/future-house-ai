@@ -10,6 +10,10 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import {
+  CustomerReservationHistoryModal,
+  type CustomerHistoryReservation,
+} from "./components/CustomerReservationHistoryModal";
 
 type Customer = {
   id: string;
@@ -22,14 +26,7 @@ type Customer = {
   updated_at: string;
 };
 
-type ReservationSummary = {
-  id: string;
-  customer_id: string | null;
-  reservation_date: string;
-  total_price: number;
-  status: "pending" | "confirmed" | "cancelled" | "completed";
-  payment_status: "unpaid" | "partial" | "paid" | "refunded";
-};
+type ReservationSummary = CustomerHistoryReservation;
 
 type CustomerForm = {
   fullName: string;
@@ -97,6 +94,8 @@ export default function CustomersPage() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [historyCustomer, setHistoryCustomer] =
+    useState<Customer | null>(null);
 
   const [pageLoading, setPageLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -145,9 +144,17 @@ export default function CustomersPage() {
             id,
             customer_id,
             reservation_date,
+            start_time,
+            end_time,
             total_price,
             status,
-            payment_status
+            payment_status,
+            courts (
+              name,
+              facilities (
+                name
+              )
+            )
           `)
           .not("customer_id", "is", null)
           .order("reservation_date", { ascending: false }),
@@ -715,6 +722,14 @@ export default function CustomersPage() {
                   <div className="mt-5 grid grid-cols-2 gap-3">
                     <button
                       type="button"
+                      onClick={() => setHistoryCustomer(customer)}
+                      className="col-span-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-black transition hover:bg-gray-200"
+                    >
+                      Rezervasyon Geçmişi
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={() =>
                         openEditCustomerForm(customer)
                       }
@@ -880,6 +895,17 @@ export default function CustomersPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {historyCustomer && (
+        <CustomerReservationHistoryModal
+          customer={historyCustomer}
+          reservations={reservations.filter(
+            (reservation) =>
+              reservation.customer_id === historyCustomer.id
+          )}
+          onClose={() => setHistoryCustomer(null)}
+        />
       )}
     </main>
   );
