@@ -112,6 +112,7 @@ describe("doTimesOverlap", () => {
   const reservation: Reservation = {
     id: "reservation-1",
     court_id: "court-1",
+    customer_id: null,
     customer_name: "Test Müşteri",
     customer_phone: null,
     reservation_date: "2026-08-01",
@@ -163,6 +164,15 @@ describe("getReservationFormError", () => {
     ).toContain("en az 3 saat");
   });
 
+  it("returns a clear message for customer ownership violations", () => {
+    expect(
+      getReservationFormError({
+        code: "P0001",
+        message: "reservation_customer_ownership_violation",
+      })
+    ).toContain("bu işletmeye ait değil");
+  });
+
   it("keeps unexpected database errors visible", () => {
     expect(
       getReservationFormError({
@@ -179,6 +189,7 @@ describe("hasReservationScheduleChanged", () => {
   const reservation: Reservation = {
     id: "reservation-1",
     court_id: "court-1",
+    customer_id: null,
     customer_name: "Test Müşteri",
     customer_phone: null,
     reservation_date: "2026-08-01",

@@ -15,6 +15,13 @@ export type Court = {
   }[] | null;
 };
 
+export type Customer = {
+  id: string;
+  full_name: string;
+  phone: string | null;
+  email: string | null;
+};
+
 export type ReservationStatus =
   | "pending"
   | "confirmed"
@@ -30,6 +37,7 @@ export type PaymentStatus =
 export type Reservation = {
   id: string;
   court_id: string;
+  customer_id: string | null;
   customer_name: string;
   customer_phone: string | null;
   reservation_date: string;
@@ -54,6 +62,7 @@ export type ReservationAuditLog = {
 
 export type ReservationForm = {
   courtId: string;
+  customerId: string;
   customerName: string;
   customerPhone: string;
   startTime: string;
@@ -61,6 +70,7 @@ export type ReservationForm = {
   status: ReservationStatus;
   paymentStatus: PaymentStatus;
   totalPrice: string;
+  saveCustomer: boolean;
 };
 
 export type CalendarDay = {
